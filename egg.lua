@@ -227,6 +227,7 @@ local function scanPets()
                string.find(petName, "Raccoon") or 
                string.find(petName, "Golden Dragonfly") then
                  isRare = true
+			   end
             if displaySize == "Big" or displaySize == "Mega" or displaySize == "Huge" then isRare = true end
             if displayType == "Rainbow" then isRare = true end
 
@@ -349,5 +350,4 @@ local function startBot()
         end
     end
 end
-
 task.spawn(startBot)
