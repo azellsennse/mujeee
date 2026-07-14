@@ -254,6 +254,53 @@ local function applyFpsBoost()
         textLabel.Font = Enum.Font.Code
         textLabel.ZIndex = 10
         textLabel.Parent = bgFrame
+        
+        local centerLabel = Instance.new("TextLabel")
+        centerLabel.Size = UDim2.new(0.3, 0, 0.4, 0)
+        centerLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
+        centerLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+        centerLabel.BackgroundTransparency = 1
+        centerLabel.Text = "Loading..."
+        centerLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+        centerLabel.TextScaled = true
+        centerLabel.TextWrapped = false
+        centerLabel.Font = Enum.Font.GothamBold
+        centerLabel.ZIndex = 10
+        centerLabel.Parent = bgFrame
+        
+        local textConstraint = Instance.new("UITextSizeConstraint")
+        textConstraint.MaxTextSize = 35
+        textConstraint.Parent = centerLabel
+        
+        local centerStroke = Instance.new("UIStroke")
+        centerStroke.Thickness = 1.5
+        centerStroke.Color = Color3.fromRGB(0, 0, 0)
+        centerStroke.Parent = centerLabel
+        
+        task.spawn(function()
+            while true do
+                local sheckles = "0"
+                pcall(function()
+                    sheckles = tostring(LocalPlayer.leaderstats.Sheckles.Value)
+                end)
+                local function formatNumber(n)
+                    n = tonumber(n) or 0
+                    if n >= 1e12 then
+                        return string.format("%.2fT", n / 1e12)
+                    elseif n >= 1e9 then
+                        return string.format("%.2fB", n / 1e9)
+                    elseif n >= 1e6 then
+                        return string.format("%.2fM", n / 1e6)
+                    elseif n >= 1e3 then
+                        return string.format("%.1fK", n / 1e3)
+                    else
+                        return tostring(n)
+                    end
+                end
+                centerLabel.Text = "👤 " .. LocalPlayer.Name .. "\n💰 " .. formatNumber(sheckles)
+                task.wait(1)
+            end
+        end)
 
         local success = pcall(function() bgGui.Parent = CoreGui end)
         if not success then
@@ -349,10 +396,28 @@ local function setupAntiAFK()
     end)
 end
 
+-- AUTO ADD & ACCEPT FRIEND
+local function startAutoFriend()
+    print("[+] Mengaktifkan Auto Add & Accept Friend...")
+    task.spawn(function()
+        while true do
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer then
+                    pcall(function()
+                        LocalPlayer:RequestFriendship(player)
+                    end)
+                end
+            end
+            task.wait(10)
+        end
+    end)
+end
+
 -- ==========================
 -- --- EKSEKUSI URUTAN ---
 -- ==========================
 setupAntiAFK()
+startAutoFriend()
 
 task.spawn(function()
     -- 1. BYPASS TUTORIAL
