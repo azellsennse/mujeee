@@ -24,7 +24,7 @@ local Config = getgenv().MuzeAutoBuyConfig or {
 
 -- 1. BYPASS TUTORIAL
 local function completeTutorialInstantly()
-    print("[1/6] Bypass tutorial...")
+    print("[1/5] Bypass tutorial...")
     pcall(function()
         RemoteEvent:FireServer(buffer.fromstring("C\x01"))
     end)
@@ -32,7 +32,7 @@ end
 
 -- 2. TELEPORT KE STEVEN
 local function teleportToSteven()
-    print("[2/6] Teleport ke Steven (5x percobaan tiap 5 detik)...")
+    print("[2/5] Teleport ke Steven (5x percobaan tiap 5 detik)...")
     local steven = Workspace:FindFirstChild("Steven", true)
     
     if not steven then
@@ -72,7 +72,7 @@ end
 
 -- 3. AUTO CLAIM MAIL
 local function startAutoClaimMail()
-    print("[3/6] Mengaktifkan Auto Claim Mail (tiap 30s)...")
+    print("[3/5] Mengaktifkan Auto Claim Mail (tiap 30s)...")
     task.spawn(function()
         while true do
             local ok, inbox = pcall(function() return Networking.Mailbox.OpenInbox:Fire() end)
@@ -83,24 +83,6 @@ local function startAutoClaimMail()
                 end
             end
             task.wait(30)
-        end
-    end)
-end
-
--- 4. AUTO DAILY DEAL (STEVEN) - LOOP TIAP 1 MENIT
-local function checkAndDealSteven()
-    print("[4/6] Memulai Loop Daily Deal (Setiap 1 Menit)...")
-    task.spawn(function()
-        while true do
-            pcall(function()
-                RemoteEvent:FireServer(unpack({buffer.fromstring("\xB4\000\x13")}))
-                task.wait(0.5)
-                RemoteEvent:FireServer(unpack({buffer.fromstring("\xB7\000\x14")}))
-                task.wait(0.5)
-                RemoteEvent:FireServer(unpack({buffer.fromstring("\xB8\000")}))
-            end)
-            print("[!] Daily Deal dieksekusi.")
-            task.wait(60) 
         end
     end)
 end
@@ -182,9 +164,9 @@ local function nukeEnvironment()
     end
 end
 
--- 5. FPS BOOST
+-- 4. FPS BOOST
 local function applyFpsBoost()
-    print("[5/6] Mengaktifkan Brutal FPS Boost & Custom Black Screen...")
+    print("[4/5] Mengaktifkan Brutal FPS Boost & Custom Black Screen...")
     
     local objectsToDestroy = {"MidLayer", "Baseplate", "Middle", "Grass", "Gardens", "SpawnPoint"}
     for _, name in pairs(objectsToDestroy) do 
@@ -312,9 +294,9 @@ local function applyFpsBoost()
     end)
 end
 
--- 6. AUTO BUY (MENGGUNAKAN GETGENV CONFIG)
+-- 5. AUTO BUY (MENGGUNAKAN GETGENV CONFIG)
 local function startAutoBuy()
-    print("[6/6] Mengaktifkan Auto Buy (Dari Config Luar)...")
+    print("[5/5] Mengaktifkan Auto Buy (Dari Config Luar)...")
     
     local SEEDS = {
         "Moon Bloom", "Rocket Pop", "Sun Bloom", "Star Fruit", "Eclipse Bloom",
@@ -452,15 +434,11 @@ task.spawn(function()
     startAutoClaimMail()
     task.wait(0.5)
     
-    -- 4. DAILY DEAL (STEVEN)
-    checkAndDealSteven()
-    task.wait(0.5)
-    
-    -- 5. FPS BOOST
+    -- 4. FPS BOOST
     applyFpsBoost()
     task.wait(0.5)
     
-    -- 6. AUTO BUY
+    -- 5. AUTO BUY
     startAutoBuy()
     
     print("[+] Selesai! Semua fitur telah dijalankan dan sedang bekerja di latar belakang.")
