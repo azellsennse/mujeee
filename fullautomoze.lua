@@ -17,6 +17,7 @@ local antiAfkEnabled = true
 local Config = getgenv().MuzeAutoBuyConfig or {
     BuySeeds = false,
     BuyGears = false,
+    AutoSell = true, -- Fitur Baru
     Delay = 10,
     Seeds = {},
     Gears = {}
@@ -24,7 +25,7 @@ local Config = getgenv().MuzeAutoBuyConfig or {
 
 -- 1. BYPASS TUTORIAL
 local function completeTutorialInstantly()
-    print("[1/5] Bypass tutorial...")
+    print("[1/6] Bypass tutorial...")
     pcall(function()
         RemoteEvent:FireServer(buffer.fromstring("C\x01"))
     end)
@@ -32,7 +33,7 @@ end
 
 -- 2. TELEPORT KE STEVEN
 local function teleportToSteven()
-    print("[2/5] Teleport ke Steven (5x percobaan tiap 5 detik)...")
+    print("[2/6] Teleport ke Steven (5x percobaan tiap 5 detik)...")
     local steven = Workspace:FindFirstChild("Steven", true)
     
     if not steven then
@@ -72,7 +73,7 @@ end
 
 -- 3. AUTO CLAIM MAIL
 local function startAutoClaimMail()
-    print("[3/5] Mengaktifkan Auto Claim Mail (tiap 30s)...")
+    print("[3/6] Mengaktifkan Auto Claim Mail (tiap 30s)...")
     task.spawn(function()
         while true do
             local ok, inbox = pcall(function() return Networking.Mailbox.OpenInbox:Fire() end)
@@ -166,7 +167,7 @@ end
 
 -- 4. FPS BOOST
 local function applyFpsBoost()
-    print("[4/5] Mengaktifkan Brutal FPS Boost & Custom Black Screen...")
+    print("[4/6] Mengaktifkan Brutal FPS Boost & Custom Black Screen...")
     
     local objectsToDestroy = {"MidLayer", "Baseplate", "Middle", "Grass", "Gardens", "SpawnPoint"}
     for _, name in pairs(objectsToDestroy) do 
@@ -296,7 +297,7 @@ end
 
 -- 5. AUTO BUY (MENGGUNAKAN GETGENV CONFIG)
 local function startAutoBuy()
-    print("[5/5] Mengaktifkan Auto Buy (Dari Config Luar)...")
+    print("[5/6] Mengaktifkan Auto Buy (Dari Config Luar)...")
     
     local SEEDS = {
         "Moon Bloom", "Rocket Pop", "Sun Bloom", "Star Fruit", "Eclipse Bloom",
@@ -344,6 +345,87 @@ local function startAutoBuy()
         end
     end)
 end
+
+-- ==========================
+-- AUTO SELL HELPERS
+-- ==========================
+local function isSellableFruit(item)
+    return item:IsA("Tool") and item:GetAttribute("Id") ~= nil 
+        and not item.Name:lower():match("seed") 
+        and not item.Name:lower():match("watering") 
+        and not item.Name:lower():match("sprinkler")
+end
+
+local function PerformSell()
+    local fruits = {}
+    
+    for _, item in ipairs(LocalPlayer.Backpack:GetChildren()) do
+        if isSellableFruit(item) then table.insert(fruits, item) end
+    end
+    if LocalPlayer.Character then
+        for _, item in ipairs(LocalPlayer.Character:GetChildren()) do
+            if isSellableFruit(item) then table.insert(fruits, item) end
+        end
+    end
+
+    if #fruits > 0 then
+        pcall(function() Networking.NPCS.SellAll:Fire() end)
+        task.wait()
+
+        local stillHasFruits = false
+        for _, item in ipairs(LocalPlayer.Backpack:GetChildren()) do
+            if isSellableFruit(item) then
+                stillHasFruits = true
+                break
+            end
+        end
+
+        if stillHasFruits then
+            for _, tool in ipairs(fruits) do
+                local id = tool:GetAttribute("Id")
+                if id and tool.Parent then
+                    pcall(function() Networking.NPCS.SellFruit:Fire(id) end)
+                    task.wait()
+                end
+            end
+        end
+    end
+end
+
+-- 6. AUTO DAILY DEAL & AUTO SELL
+local function startAutoDailyDealAndSell()
+    print("[6/6] Mengaktifkan Auto Daily Deal & Auto Sell (Siklus 60 detik)...")
+    
+    task.spawn(function()
+        while true do
+            if Config.AutoSell then
+                -- 1. Kerjakan Daily Deal Dulu
+                print("[Auto Sell] Mengeksekusi Daily Deal...")
+                pcall(function()
+                    RemoteEvent:FireServer(unpack({buffer.fromstring("\xB4\000\x13")}))
+                    task.wait(0.5)
+                    RemoteEvent:FireServer(unpack({buffer.fromstring("\xB7\000\x14")}))
+                    task.wait(0.5)
+                    RemoteEvent:FireServer(unpack({buffer.fromstring("\xB8\000")}))
+                end)
+                print("[!] Daily Deal dieksekusi.")
+                
+                -- Tunggu agar Daily Deal selesai diproses oleh server sebelum di-sell semua
+                task.wait(2)
+                
+                -- 2. Lakukan Auto Sell (Unlock Sell)
+                print("[Auto Sell] Mengeksekusi Sell All...")
+                pcall(function()
+                    PerformSell()
+                end)
+            end
+            
+            -- 3. Lock / Jeda selama 60 detik sebelum mengulang siklus
+            task.wait(60)
+        end
+    end)
+end
+
 
 -- ANTI AFK
 local function setupAntiAFK()
@@ -440,6 +522,10 @@ task.spawn(function()
     
     -- 5. AUTO BUY
     startAutoBuy()
+    task.wait(0.5)
+    
+    -- 6. AUTO DAILY DEAL & SELL
+    startAutoDailyDealAndSell()
     
     print("[+] Selesai! Semua fitur telah dijalankan dan sedang bekerja di latar belakang.")
 end)
