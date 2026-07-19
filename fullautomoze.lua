@@ -394,13 +394,13 @@ end
 
 -- 6. AUTO DAILY DEAL & AUTO SELL
 local function startAutoDailyDealAndSell()
-    print("[6/6] Mengaktifkan Auto Daily Deal & Auto Sell (Siklus 60 detik)...")
+    print("[6/6] Mengaktifkan Auto Daily Deal (10 Detik) & Auto Sell (3 Menit)...")
     
+    -- Loop 1: Auto Daily Deal (Tiap 10 detik)
     task.spawn(function()
         while true do
             if Config.AutoSell then
-                -- 1. Kerjakan Daily Deal Dulu
-                print("[Auto Sell] Mengeksekusi Daily Deal...")
+                print("[Auto Daily Deal] Mengeksekusi Daily Deal...")
                 pcall(function()
                     RemoteEvent:FireServer(unpack({buffer.fromstring("\xB4\000\x13")}))
                     task.wait(0.5)
@@ -409,19 +409,20 @@ local function startAutoDailyDealAndSell()
                     RemoteEvent:FireServer(unpack({buffer.fromstring("\xB8\000")}))
                 end)
                 print("[!] Daily Deal dieksekusi.")
-                
-                -- Tunggu agar Daily Deal selesai diproses oleh server sebelum di-sell semua
-                task.wait(2)
-                
-                -- 2. Lakukan Auto Sell (Unlock Sell)
-                print("[Auto Sell] Mengeksekusi Sell All...")
+            end
+            task.wait(10) -- Jeda 10 detik
+        end
+    end)
+    
+    -- Loop 2: Auto Sell All (Tiap 3 menit)
+    task.spawn(function()
+        while true do
+            if Config.AutoSell then
                 pcall(function()
                     PerformSell()
                 end)
             end
-            
-            -- 3. Lock / Jeda selama 60 detik sebelum mengulang siklus
-            task.wait(60)
+            task.wait(180) -- Jeda 3 menit
         end
     end)
 end
