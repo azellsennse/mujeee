@@ -17,17 +17,17 @@ local antiAfkEnabled = true
 local Config = getgenv().MuzeAutoBuyConfig or {
     BuySeeds = false,
     BuyGears = false,
-    AutoSell = true, -- Fitur Baru
+    AutoSell = true, 
     Delay = 10,
     Seeds = {},
     Gears = {}
 }
 
--- 1. BYPASS TUTORIAL
+-- 1. BYPASS TUTORIAL (VERSI TERBARU, LEBIH STABIL)
 local function completeTutorialInstantly()
     print("[1/6] Bypass tutorial...")
     pcall(function()
-        RemoteEvent:FireServer(buffer.fromstring("C\x01"))
+        Networking.Tutorial.Complete:Fire()
     end)
 end
 
@@ -54,7 +54,6 @@ local function teleportToSteven()
                 root.CFrame = target.CFrame + Vector3.new(0, 3, 3)
                 root.Anchored = true 
                 
-                -- FITUR ANTI VOID
                 local platName = "AntiVoidPlatform_Steven"
                 if not Workspace:FindFirstChild(platName) then
                     local plat = Instance.new("Part")
@@ -301,7 +300,6 @@ local function startAutoBuy()
     
     task.spawn(function()
         while true do
-            -- Loop Seed
             if Config.BuySeeds and Config.Seeds then
                 for itemName, isEnabled in pairs(Config.Seeds) do 
                     if isEnabled == true then
@@ -315,7 +313,6 @@ local function startAutoBuy()
                 end
             end
             
-            -- Loop Gear
             if Config.BuyGears and Config.Gears then
                 for itemName, isEnabled in pairs(Config.Gears) do 
                     if isEnabled == true then
@@ -329,7 +326,6 @@ local function startAutoBuy()
                 end
             end
             
-            -- Jeda dari config, default 10 detik
             task.wait(Config.Delay or 10)
         end
     end)
@@ -348,7 +344,6 @@ local function isSellableFruit(item)
     if not item:IsA("Tool") then return false end
     if utilityTools[item.Name] then return false end
     
-    -- Filter item-item penting agar tidak terjual
     local patterns = {"Pot", "Can", "Trowel", "Bag", "Fertilizer", "Axe", "Pickaxe", "Shovel", "Sprinkler", "Seed"}
     for _, p in ipairs(patterns) do
         if item.Name:find(p) then return false end
@@ -393,41 +388,34 @@ local function PerformSell()
     end
 end
 
--- 6. AUTO DAILY DEAL & AUTO SELL
+-- 6. AUTO DAILY DEAL & AUTO SELL (DIGABUNG 1 LOOP, API TERBARU)
 local function startAutoDailyDealAndSell()
-    print("[6/6] Mengaktifkan Auto Daily Deal (10 Detik) & Auto Sell (3 Menit)...")
+    print("[6/6] Mengaktifkan Auto Daily Deal & Auto Sell (1 Loop)...")
     
-    -- Loop 1: Auto Daily Deal (Tiap 10 detik)
     task.spawn(function()
+        local timer = 0
         while true do
             if Config.AutoSell then
-                print("[Auto Daily Deal] Mengeksekusi Daily Deal...")
-                pcall(function()
-                    RemoteEvent:FireServer(unpack({buffer.fromstring("\xB4\000\x13")}))
-                    task.wait(0.5)
-                    RemoteEvent:FireServer(unpack({buffer.fromstring("\xB7\000\x14")}))
-                    task.wait(0.5)
-                    RemoteEvent:FireServer(unpack({buffer.fromstring("\xB8\000")}))
-                end)
-                print("[!] Daily Deal dieksekusi.")
+                -- 1. Eksekusi Daily Deal (setiap 10 detik)
+                if timer % 10 == 0 then
+                    pcall(function()
+                        Networking.NPCS.UseDailyDealAll:Fire()
+                    end)
+                end
+                
+                -- 2. Eksekusi Auto Sell (setiap 180 detik / 3 menit)
+                if timer % 180 == 0 then
+                    pcall(function()
+                        PerformSell()
+                    end)
+                end
             end
-            task.wait(10) -- Jeda 10 detik
-        end
-    end)
-    
-    -- Loop 2: Auto Sell All (Tiap 3 menit)
-    task.spawn(function()
-        while true do
-            if Config.AutoSell then
-                pcall(function()
-                    PerformSell()
-                end)
-            end
-            task.wait(180) -- Jeda 3 menit
+            
+            task.wait(1)
+            timer = timer + 1
         end
     end)
 end
-
 
 -- ANTI AFK
 local function setupAntiAFK()
@@ -443,14 +431,12 @@ local function setupAntiAFK()
     task.spawn(function()
         while true do
             task.wait(math.random(150, 240)) 
-            
             if antiAfkEnabled then
                 pcall(function()
                     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
                     task.wait(0.1)
                     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
                 end)
-                
                 pcall(function()
                     local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
                     if humanoid then
@@ -462,28 +448,10 @@ local function setupAntiAFK()
     end)
 end
 
--- AUTO ADD & ACCEPT FRIEND
-local function startAutoFriend()
-    print("[+] Mengaktifkan Auto Add & Accept Friend...")
-    task.spawn(function()
-        while true do
-            for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer then
-                    pcall(function()
-                        LocalPlayer:RequestFriendship(player)
-                    end)
-                end
-            end
-            task.wait(10)
-        end
-    end)
-end
-
 -- ==========================
 -- --- EKSEKUSI URUTAN ---
 -- ==========================
 setupAntiAFK()
-startAutoFriend()
 
 task.spawn(function()
     -- 1. BYPASS TUTORIAL
@@ -526,7 +494,7 @@ task.spawn(function()
     startAutoBuy()
     task.wait(0.5)
     
-    -- 6. AUTO DAILY DEAL & SELL
+    -- 6. AUTO DAILY DEAL & SELL (Terbaru & Gabung Loop)
     startAutoDailyDealAndSell()
     
     print("[+] Selesai! Semua fitur telah dijalankan dan sedang bekerja di latar belakang.")
