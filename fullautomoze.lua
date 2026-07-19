@@ -336,13 +336,25 @@ local function startAutoBuy()
 end
 
 -- ==========================
--- AUTO SELL HELPERS
+-- AUTO SELL HELPERS (DARI SCRIPT.TXT)
 -- ==========================
+local utilityTools = {
+    ["Basic Pot"] = true, ["Watering Can"] = true, ["Trowel"] = true,
+    ["Super Trowel"] = true, ["Golden Trowel"] = true,
+    ["Infinite Watering Can"] = true, ["Seed Bag"] = true,
+}
+
 local function isSellableFruit(item)
-    return item:IsA("Tool") and item:GetAttribute("Id") ~= nil 
-        and not item.Name:lower():match("seed") 
-        and not item.Name:lower():match("watering") 
-        and not item.Name:lower():match("sprinkler")
+    if not item:IsA("Tool") then return false end
+    if utilityTools[item.Name] then return false end
+    
+    -- Filter item-item penting agar tidak terjual
+    local patterns = {"Pot", "Can", "Trowel", "Bag", "Fertilizer", "Axe", "Pickaxe", "Shovel", "Sprinkler", "Seed"}
+    for _, p in ipairs(patterns) do
+        if item.Name:find(p) then return false end
+    end
+    
+    return true
 end
 
 local function PerformSell()
