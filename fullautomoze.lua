@@ -299,22 +299,12 @@ end
 local function startAutoBuy()
     print("[5/6] Mengaktifkan Auto Buy (Dari Config Luar)...")
     
-    local SEEDS = {
-        "Moon Bloom", "Rocket Pop", "Sun Bloom", "Star Fruit", "Eclipse Bloom",
-        "Hypno Bloom", "Dragon's Breath", "Venom Spitter"
-    } 
-    
-    local GEARS = {
-        "Legendary Sprinkler", "Super Sprinkler", "Super Watering Can"
-    }
-
     task.spawn(function()
         while true do
             -- Loop Seed
-            if Config.BuySeeds then
-                for _, itemName in ipairs(SEEDS) do 
-                    -- Cek di getgenv apakah seed ini = true
-                    if Config.Seeds and Config.Seeds[itemName] == true then
+            if Config.BuySeeds and Config.Seeds then
+                for itemName, isEnabled in pairs(Config.Seeds) do 
+                    if isEnabled == true then
                         local payloadString = "{\000" .. string.char(#itemName) .. itemName
                         local args = { buffer.fromstring(payloadString) }
                         for i = 1, 3 do 
@@ -326,10 +316,9 @@ local function startAutoBuy()
             end
             
             -- Loop Gear
-            if Config.BuyGears then
-                for _, itemName in ipairs(GEARS) do 
-                    -- Cek di getgenv apakah gear ini = true
-                    if Config.Gears and Config.Gears[itemName] == true then
+            if Config.BuyGears and Config.Gears then
+                for itemName, isEnabled in pairs(Config.Gears) do 
+                    if isEnabled == true then
                         local payloadString = "\127\000" .. string.char(#itemName) .. itemName
                         local args = { buffer.fromstring(payloadString) }
                         for i = 1, 3 do 
