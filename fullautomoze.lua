@@ -73,7 +73,7 @@ local function teleportToSteven()
             local root = char and char:FindFirstChild("HumanoidRootPart")
             if root then
                 root.CFrame = target.CFrame + Vector3.new(0, 3, 3)
-                root.Anchored = true 
+                root.Velocity = Vector3.new(0, 0, 0)
                 
                 local platName = "AntiVoidPlatform_Steven"
                 if not Workspace:FindFirstChild(platName) then
@@ -424,32 +424,32 @@ local function PerformSell()
 
     if #fruits > 0 then
         task.spawn(function()
-            pcall(function()
-                -- 1. Check Daily Deal
-                local deal = Networking.NPCS.CheckDailyDeal:Fire()
-                local hasDeal = deal and deal.Available
-                
-                -- 2. Ask for a bid (Wajib dilakukan di versi baru agar server menerima request sell)
-                local bid = Networking.NPCS.AskBidAll:Fire()
-                
-                if bid and bid.Success then
-                    task.wait(0.5) -- Jeda sebentar agar server memproses bid
-                    
-                    -- 3. Sell (Gunakan Daily Deal jika ada, kalau tidak gunakan SellAll biasa)
-                    if hasDeal then
-                        Networking.NPCS.UseDailyDealAll:Fire()
-                    else
-                        Networking.NPCS.SellAll:Fire()
-                    end
-                else
-                    -- Fallback: Coba paksa SellAll / SellFruit individu jika AskBid gagal (cooldown dll)
-                    Networking.NPCS.SellAll:Fire()
-                    for _, tool in ipairs(fruits) do
-                        local id = tool:GetAttribute("Id")
-                        if id then Networking.NPCS.SellFruit:Fire(id) end
+            -- Coba gunakan Daily Deal secara paksa (tanpa bid)
+            pcall(function() Networking.NPCS.UseDailyDealAll:Fire() end)
+            task.wait(0.5)
+            
+            -- Coba gunakan SellAll secara paksa
+            pcall(function() Networking.NPCS.SellAll:Fire() end)
+            task.wait(0.5)
+            
+            -- Fallback brutal (seperti script.txt yang bisa dari mana saja)
+            local stillHasFruits = false
+            for _, item in ipairs(LocalPlayer.Backpack:GetChildren()) do
+                if isSellableFruit(item) then
+                    stillHasFruits = true
+                    break
+                end
+            end
+
+            if stillHasFruits then
+                for _, tool in ipairs(fruits) do
+                    local id = tool:GetAttribute("Id")
+                    if id and tool.Parent then
+                        pcall(function() Networking.NPCS.SellFruit:Fire(id) end)
+                        task.wait()
                     end
                 end
-            end)
+            end
         end)
     end
 end
