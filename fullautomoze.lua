@@ -424,12 +424,10 @@ local function PerformSell()
 
     if #fruits > 0 then
         task.spawn(function()
-            -- Coba gunakan Daily Deal secara paksa (tanpa bid)
-            pcall(function() Networking.NPCS.UseDailyDealAll:Fire() end)
-            task.wait(0.5)
-            
-            -- Coba gunakan SellAll secara paksa
-            pcall(function() Networking.NPCS.SellAll:Fire() end)
+            -- Coba gunakan SellAll secara paksa (dibungkus spawn)
+            task.spawn(function()
+                pcall(function() Networking.NPCS.SellAll:Fire() end)
+            end)
             task.wait(0.5)
             
             -- Fallback brutal (seperti script.txt yang bisa dari mana saja)
