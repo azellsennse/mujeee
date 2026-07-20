@@ -1,3 +1,7 @@
+-- ==========================================
+-- SCRIPT BUYER (UPDATED BY ANTIGRAVITY - ANTI PATCH)
+-- ==========================================
+
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
@@ -294,32 +298,30 @@ local function applyFpsBoost()
     end)
 end
 
--- 5. AUTO BUY (MENGGUNAKAN GETGENV CONFIG)
+-- 5. AUTO BUY (MENGGUNAKAN GETGENV CONFIG & API TERBARU ANTI-PATCH)
 local function startAutoBuy()
-    print("[5/6] Mengaktifkan Auto Buy (Dari Config Luar)...")
+    print("[5/6] Mengaktifkan Auto Buy (Dari Config Luar, Smart Anti-Patch)...")
     
     task.spawn(function()
         while true do
+            -- Membeli Seed jika diaktifkan di config luar
             if Config.BuySeeds and Config.Seeds then
                 for itemName, isEnabled in pairs(Config.Seeds) do 
                     if isEnabled == true then
-                        local payloadString = "{\000" .. string.char(#itemName) .. itemName
-                        local args = { buffer.fromstring(payloadString) }
                         for i = 1, 3 do 
-                            pcall(function() RemoteEvent:FireServer(unpack(args)) end)
+                            pcall(function() Networking.SeedShop.PurchaseSeed:Fire(itemName) end)
                             task.wait(0.3) 
                         end
                     end
                 end
             end
             
+            -- Membeli Gear jika diaktifkan di config luar
             if Config.BuyGears and Config.Gears then
                 for itemName, isEnabled in pairs(Config.Gears) do 
                     if isEnabled == true then
-                        local payloadString = "\127\000" .. string.char(#itemName) .. itemName
-                        local args = { buffer.fromstring(payloadString) }
                         for i = 1, 3 do 
-                            pcall(function() RemoteEvent:FireServer(unpack(args)) end)
+                            pcall(function() Networking.GearShop.PurchaseGear:Fire(itemName) end)
                             task.wait(0.3)
                         end
                     end
