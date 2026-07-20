@@ -1,5 +1,5 @@
 -- ==========================================
--- SCRIPT BUYER (UPDATED BY ANTIGRAVITY - ANTI PATCH)
+-- SCRIPT BUYER (UPDATED BY ANTIGRAVITY - ANTI PATCH + HISTORY UI)
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -16,6 +16,9 @@ local Networking = require(ReplicatedStorage.SharedModules.Networking)
 local Terrain = Workspace:FindFirstChildOfClass("Terrain")
 
 local antiAfkEnabled = true
+
+-- VARIABEL TRACKING HISTORY
+local PurchaseHistory = {} 
 
 -- MENGAMBIL KONFIGURASI DARI LUAR (GETGENV)
 local Config = getgenv().MuzeAutoBuyConfig or {
@@ -168,7 +171,7 @@ local function nukeEnvironment()
     end
 end
 
--- 4. FPS BOOST
+-- 4. FPS BOOST (UPDATED DENGAN HISTORY UI)
 local function applyFpsBoost()
     print("[4/6] Mengaktifkan Brutal FPS Boost & Custom Black Screen...")
     
@@ -263,27 +266,57 @@ local function applyFpsBoost()
         centerStroke.Color = Color3.fromRGB(0, 0, 0)
         centerStroke.Parent = centerLabel
         
+        -- HISTORY UI (BARU)
+        local historyLabel = Instance.new("TextLabel")
+        historyLabel.Size = UDim2.new(0.4, 0, 0.4, 0)
+        historyLabel.Position = UDim2.new(0.5, 0, 0.55, 0) -- Muncul sedikit di bawah CenterLabel
+        historyLabel.AnchorPoint = Vector2.new(0.5, 0)
+        historyLabel.BackgroundTransparency = 1
+        historyLabel.Text = ""
+        historyLabel.TextColor3 = Color3.fromRGB(150, 255, 150)
+        historyLabel.TextScaled = false
+        historyLabel.TextSize = 18
+        historyLabel.TextXAlignment = Enum.TextXAlignment.Center
+        historyLabel.TextYAlignment = Enum.TextYAlignment.Top
+        historyLabel.TextWrapped = true
+        historyLabel.Font = Enum.Font.GothamBold
+        historyLabel.ZIndex = 10
+        historyLabel.Parent = bgFrame
+        
+        local historyStroke = Instance.new("UIStroke")
+        historyStroke.Thickness = 1.5
+        historyStroke.Color = Color3.fromRGB(0, 0, 0)
+        historyStroke.Parent = historyLabel
+        
         task.spawn(function()
             while true do
+                -- Update Duit
                 local sheckles = "0"
                 pcall(function()
                     sheckles = tostring(LocalPlayer.leaderstats.Sheckles.Value)
                 end)
                 local function formatNumber(n)
                     n = tonumber(n) or 0
-                    if n >= 1e12 then
-                        return string.format("%.2fT", n / 1e12)
-                    elseif n >= 1e9 then
-                        return string.format("%.2fB", n / 1e9)
-                    elseif n >= 1e6 then
-                        return string.format("%.2fM", n / 1e6)
-                    elseif n >= 1e3 then
-                        return string.format("%.1fK", n / 1e3)
-                    else
-                        return tostring(n)
-                    end
+                    if n >= 1e12 then return string.format("%.2fT", n / 1e12)
+                    elseif n >= 1e9 then return string.format("%.2fB", n / 1e9)
+                    elseif n >= 1e6 then return string.format("%.2fM", n / 1e6)
+                    elseif n >= 1e3 then return string.format("%.1fK", n / 1e3)
+                    else return tostring(n) end
                 end
                 centerLabel.Text = "👤 " .. LocalPlayer.Name .. "\n💰 " .. formatNumber(sheckles)
+                
+                -- Update History Pembelian
+                local historyLines = {}
+                for name, count in pairs(PurchaseHistory) do
+                    table.insert(historyLines, name .. " " .. count .. "x")
+                end
+                
+                if #historyLines > 0 then
+                    historyLabel.Text = "🛒 HISTORY AUTO BUY:\n" .. table.concat(historyLines, "\n")
+                else
+                    historyLabel.Text = ""
+                end
+                
                 task.wait(1)
             end
         end)
@@ -309,7 +342,10 @@ local function startAutoBuy()
                 for itemName, isEnabled in pairs(Config.Seeds) do 
                     if isEnabled == true then
                         for i = 1, 3 do 
-                            pcall(function() Networking.SeedShop.PurchaseSeed:Fire(itemName) end)
+                            pcall(function() 
+                                Networking.SeedShop.PurchaseSeed:Fire(itemName) 
+                                PurchaseHistory[itemName] = (PurchaseHistory[itemName] or 0) + 1
+                            end)
                             task.wait(0.3) 
                         end
                     end
@@ -321,7 +357,10 @@ local function startAutoBuy()
                 for itemName, isEnabled in pairs(Config.Gears) do 
                     if isEnabled == true then
                         for i = 1, 3 do 
-                            pcall(function() Networking.GearShop.PurchaseGear:Fire(itemName) end)
+                            pcall(function() 
+                                Networking.GearShop.PurchaseGear:Fire(itemName) 
+                                PurchaseHistory[itemName] = (PurchaseHistory[itemName] or 0) + 1
+                            end)
                             task.wait(0.3)
                         end
                     end
