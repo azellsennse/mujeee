@@ -40,6 +40,7 @@ local Config = getgenv().MuzeAutoBuyConfig or {
     BuySeeds = false,
     BuyGears = false,
     AutoSell = true, 
+    DailyDeal = true,
     Delay = 10,
     Seeds = {},
     Gears = {}
@@ -424,6 +425,14 @@ local function PerformSell()
 
     if #fruits > 0 then
         task.spawn(function()
+            if Config.DailyDeal then
+                -- Coba gunakan Daily Deal secara paksa jika diaktifkan (dibungkus spawn)
+                task.spawn(function()
+                    pcall(function() Networking.NPCS.UseDailyDealAll:Fire() end)
+                end)
+                task.wait(0.5)
+            end
+            
             -- Coba gunakan SellAll secara paksa (dibungkus spawn)
             task.spawn(function()
                 pcall(function() Networking.NPCS.SellAll:Fire() end)
