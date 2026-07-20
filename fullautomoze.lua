@@ -423,26 +423,34 @@ local function PerformSell()
     end
 
     if #fruits > 0 then
-        pcall(function() Networking.NPCS.SellAll:Fire() end)
-        task.wait()
-
-        local stillHasFruits = false
-        for _, item in ipairs(LocalPlayer.Backpack:GetChildren()) do
-            if isSellableFruit(item) then
-                stillHasFruits = true
-                break
-            end
-        end
-
-        if stillHasFruits then
-            for _, tool in ipairs(fruits) do
-                local id = tool:GetAttribute("Id")
-                if id and tool.Parent then
-                    pcall(function() Networking.NPCS.SellFruit:Fire(id) end)
-                    task.wait()
+        task.spawn(function()
+            pcall(function()
+                -- 1. Check Daily Deal
+                local deal = Networking.NPCS.CheckDailyDeal:Fire()
+                local hasDeal = deal and deal.Available
+                
+                -- 2. Ask for a bid (Wajib dilakukan di versi baru agar server menerima request sell)
+                local bid = Networking.NPCS.AskBidAll:Fire()
+                
+                if bid and bid.Success then
+                    task.wait(0.5) -- Jeda sebentar agar server memproses bid
+                    
+                    -- 3. Sell (Gunakan Daily Deal jika ada, kalau tidak gunakan SellAll biasa)
+                    if hasDeal then
+                        Networking.NPCS.UseDailyDealAll:Fire()
+                    else
+                        Networking.NPCS.SellAll:Fire()
+                    end
+                else
+                    -- Fallback: Coba paksa SellAll / SellFruit individu jika AskBid gagal (cooldown dll)
+                    Networking.NPCS.SellAll:Fire()
+                    for _, tool in ipairs(fruits) do
+                        local id = tool:GetAttribute("Id")
+                        if id then Networking.NPCS.SellFruit:Fire(id) end
+                    end
                 end
-            end
-        end
+            end)
+        end)
     end
 end
 
@@ -454,14 +462,7 @@ local function startAutoDailyDealAndSell()
         local timer = 0
         while true do
             if Config.AutoSell then
-                -- 1. Eksekusi Daily Deal (setiap 10 detik)
-                if timer % 10 == 0 then
-                    pcall(function()
-                        Networking.NPCS.UseDailyDealAll:Fire()
-                    end)
-                end
-                
-                -- 2. Eksekusi Auto Sell (setiap 180 detik / 3 menit)
+                -- Eksekusi Auto Sell & Daily Deal (setiap 180 detik / 3 menit)
                 if timer % 180 == 0 then
                     pcall(function()
                         PerformSell()
