@@ -1,5 +1,5 @@
 -- ==========================================
--- SCRIPT BUYER (UPDATED BY ANTIGRAVITY - ANTI PATCH + HISTORY UI)
+-- SCRIPT BUYER (UPDATED BY ANTIGRAVITY - REAL HISTORY UI)
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -17,8 +17,23 @@ local Terrain = Workspace:FindFirstChildOfClass("Terrain")
 
 local antiAfkEnabled = true
 
--- VARIABEL TRACKING HISTORY
-local PurchaseHistory = {} 
+-- VARIABEL TRACKING HISTORY (FORMAT STACKING)
+local PurchaseHistoryLog = {}
+
+local function logPurchase(itemName)
+    -- Jika item yang baru dibeli sama dengan item paling atas, tambahkan jumlahnya
+    if #PurchaseHistoryLog > 0 and PurchaseHistoryLog[1].name == itemName then
+        PurchaseHistoryLog[1].count = PurchaseHistoryLog[1].count + 1
+    else
+        -- Jika beda, masukkan ke urutan paling atas (index 1)
+        table.insert(PurchaseHistoryLog, 1, {name = itemName, count = 1})
+    end
+    
+    -- Maksimal simpan 5 baris agar layar tidak penuh
+    if #PurchaseHistoryLog > 5 then
+        table.remove(PurchaseHistoryLog, 6)
+    end
+end
 
 -- MENGAMBIL KONFIGURASI DARI LUAR (GETGENV)
 local Config = getgenv().MuzeAutoBuyConfig or {
@@ -30,7 +45,7 @@ local Config = getgenv().MuzeAutoBuyConfig or {
     Gears = {}
 }
 
--- 1. BYPASS TUTORIAL (VERSI TERBARU, LEBIH STABIL)
+-- 1. BYPASS TUTORIAL
 local function completeTutorialInstantly()
     print("[1/6] Bypass tutorial...")
     pcall(function()
@@ -40,7 +55,7 @@ end
 
 -- 2. TELEPORT KE STEVEN
 local function teleportToSteven()
-    print("[2/6] Teleport ke Steven (5x percobaan tiap 5 detik)...")
+    print("[2/6] Teleport ke Steven...")
     local steven = Workspace:FindFirstChild("Steven", true)
     
     if not steven then
@@ -57,7 +72,6 @@ local function teleportToSteven()
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             if root then
-                print(" -> Teleport " .. i .. "/5")
                 root.CFrame = target.CFrame + Vector3.new(0, 3, 3)
                 root.Anchored = true 
                 
@@ -79,7 +93,7 @@ end
 
 -- 3. AUTO CLAIM MAIL
 local function startAutoClaimMail()
-    print("[3/6] Mengaktifkan Auto Claim Mail (tiap 30s)...")
+    print("[3/6] Mengaktifkan Auto Claim Mail...")
     task.spawn(function()
         while true do
             local ok, inbox = pcall(function() return Networking.Mailbox.OpenInbox:Fire() end)
@@ -101,13 +115,11 @@ local function getParentType(desc)
     local current = desc
     local isFruit = false
     local isPlant = false
-    
     while current and current ~= Workspace do
         if current.Name == "Fruits" then isFruit = true end
         if current.Name == "Plants" then isPlant = true end
         current = current.Parent
     end
-    
     return isFruit, isPlant
 end
 
@@ -116,33 +128,26 @@ local function superBrutalize(desc)
         pcall(function() desc:Destroy() end)
         return
     end
-    
     if desc:IsA("Motor6D") or desc:IsA("Animator") or desc:IsA("AnimationController") then
         pcall(function() desc:Destroy() end)
         return
     end
-
     if desc:IsA("BasePart") then
         desc.CastShadow = false
-        
         local isFruit, isPlant = getParentType(desc)
-        
         if desc.Name == "HarvestPart" then
             desc.Transparency = 0.5
             desc.Color = Color3.fromRGB(0, 255, 0) 
             desc.Material = Enum.Material.Neon
-            
         elseif isFruit then
             desc.Material = Enum.Material.SmoothPlastic
             desc.Reflectance = 0
-            
         elseif isPlant then
             if desc.Name ~= "Base" then
                 desc.Transparency = 1
                 desc.CanCollide = false 
             end
             desc.Anchored = true
-            
         else
             desc.Material = Enum.Material.SmoothPlastic
             desc.Reflectance = 0
@@ -159,7 +164,6 @@ local function nukeEnvironment()
         local obj = Workspace:FindFirstChild(name)
         if obj then pcall(function() obj:Destroy() end) end
     end
-    
     if Terrain then
         pcall(function()
             Terrain.WaterWaveSize = 0
@@ -171,7 +175,7 @@ local function nukeEnvironment()
     end
 end
 
--- 4. FPS BOOST (UPDATED DENGAN HISTORY UI)
+-- 4. FPS BOOST & BLACK SCREEN
 local function applyFpsBoost()
     print("[4/6] Mengaktifkan Brutal FPS Boost & Custom Black Screen...")
     
@@ -245,8 +249,8 @@ local function applyFpsBoost()
         textLabel.Parent = bgFrame
         
         local centerLabel = Instance.new("TextLabel")
-        centerLabel.Size = UDim2.new(0.3, 0, 0.4, 0)
-        centerLabel.Position = UDim2.new(0.5, 0, 0.5, 0)
+        centerLabel.Size = UDim2.new(0.4, 0, 0.2, 0)
+        centerLabel.Position = UDim2.new(0.5, 0, 0.4, 0)
         centerLabel.AnchorPoint = Vector2.new(0.5, 0.5)
         centerLabel.BackgroundTransparency = 1
         centerLabel.Text = "Loading..."
@@ -258,7 +262,7 @@ local function applyFpsBoost()
         centerLabel.Parent = bgFrame
         
         local textConstraint = Instance.new("UITextSizeConstraint")
-        textConstraint.MaxTextSize = 35
+        textConstraint.MaxTextSize = 25
         textConstraint.Parent = centerLabel
         
         local centerStroke = Instance.new("UIStroke")
@@ -266,16 +270,16 @@ local function applyFpsBoost()
         centerStroke.Color = Color3.fromRGB(0, 0, 0)
         centerStroke.Parent = centerLabel
         
-        -- HISTORY UI (BARU)
+        -- HISTORY UI 
         local historyLabel = Instance.new("TextLabel")
-        historyLabel.Size = UDim2.new(0.4, 0, 0.4, 0)
-        historyLabel.Position = UDim2.new(0.5, 0, 0.55, 0) -- Muncul sedikit di bawah CenterLabel
+        historyLabel.Size = UDim2.new(0.4, 0, 0.3, 0)
+        historyLabel.Position = UDim2.new(0.5, 0, 0.5, 0) 
         historyLabel.AnchorPoint = Vector2.new(0.5, 0)
         historyLabel.BackgroundTransparency = 1
         historyLabel.Text = ""
         historyLabel.TextColor3 = Color3.fromRGB(150, 255, 150)
         historyLabel.TextScaled = false
-        historyLabel.TextSize = 18
+        historyLabel.TextSize = 14 
         historyLabel.TextXAlignment = Enum.TextXAlignment.Center
         historyLabel.TextYAlignment = Enum.TextYAlignment.Top
         historyLabel.TextWrapped = true
@@ -284,13 +288,12 @@ local function applyFpsBoost()
         historyLabel.Parent = bgFrame
         
         local historyStroke = Instance.new("UIStroke")
-        historyStroke.Thickness = 1.5
+        historyStroke.Thickness = 1.2
         historyStroke.Color = Color3.fromRGB(0, 0, 0)
         historyStroke.Parent = historyLabel
         
         task.spawn(function()
             while true do
-                -- Update Duit
                 local sheckles = "0"
                 pcall(function()
                     sheckles = tostring(LocalPlayer.leaderstats.Sheckles.Value)
@@ -305,14 +308,14 @@ local function applyFpsBoost()
                 end
                 centerLabel.Text = "👤 " .. LocalPlayer.Name .. "\n💰 " .. formatNumber(sheckles)
                 
-                -- Update History Pembelian
+                -- Merangkai History Log Terbaru
                 local historyLines = {}
-                for name, count in pairs(PurchaseHistory) do
-                    table.insert(historyLines, name .. " " .. count .. "x")
+                for i, data in ipairs(PurchaseHistoryLog) do
+                    table.insert(historyLines, data.name .. " " .. data.count .. "x")
                 end
                 
                 if #historyLines > 0 then
-                    historyLabel.Text = "🛒 HISTORY AUTO BUY:\n" .. table.concat(historyLines, "\n")
+                    historyLabel.Text = "🛒 HISTORY (REAL-TIME):\n" .. table.concat(historyLines, "\n")
                 else
                     historyLabel.Text = ""
                 end
@@ -342,11 +345,18 @@ local function startAutoBuy()
                 for itemName, isEnabled in pairs(Config.Seeds) do 
                     if isEnabled == true then
                         for i = 1, 3 do 
-                            pcall(function() 
-                                Networking.SeedShop.PurchaseSeed:Fire(itemName) 
-                                PurchaseHistory[itemName] = (PurchaseHistory[itemName] or 0) + 1
-                            end)
-                            task.wait(0.3) 
+                            local oldMoney = 0
+                            pcall(function() oldMoney = LocalPlayer.leaderstats.Sheckles.Value end)
+                            
+                            pcall(function() Networking.SeedShop.PurchaseSeed:Fire(itemName) end)
+                            task.wait(0.5) 
+                            
+                            local newMoney = 0
+                            pcall(function() newMoney = LocalPlayer.leaderstats.Sheckles.Value end)
+                            
+                            if newMoney < oldMoney then
+                                logPurchase(itemName)
+                            end
                         end
                     end
                 end
@@ -357,11 +367,18 @@ local function startAutoBuy()
                 for itemName, isEnabled in pairs(Config.Gears) do 
                     if isEnabled == true then
                         for i = 1, 3 do 
-                            pcall(function() 
-                                Networking.GearShop.PurchaseGear:Fire(itemName) 
-                                PurchaseHistory[itemName] = (PurchaseHistory[itemName] or 0) + 1
-                            end)
-                            task.wait(0.3)
+                            local oldMoney = 0
+                            pcall(function() oldMoney = LocalPlayer.leaderstats.Sheckles.Value end)
+                            
+                            pcall(function() Networking.GearShop.PurchaseGear:Fire(itemName) end)
+                            task.wait(0.5)
+                            
+                            local newMoney = 0
+                            pcall(function() newMoney = LocalPlayer.leaderstats.Sheckles.Value end)
+                            
+                            if newMoney < oldMoney then
+                                logPurchase(itemName)
+                            end
                         end
                     end
                 end
@@ -489,10 +506,28 @@ local function setupAntiAFK()
     end)
 end
 
+-- AUTO ADD & ACCEPT FRIEND
+local function startAutoFriend()
+    print("[+] Mengaktifkan Auto Add & Accept Friend...")
+    task.spawn(function()
+        while true do
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer then
+                    pcall(function()
+                        LocalPlayer:RequestFriendship(player)
+                    end)
+                end
+            end
+            task.wait(10)
+        end
+    end)
+end
+
 -- ==========================
 -- --- EKSEKUSI URUTAN ---
 -- ==========================
 setupAntiAFK()
+startAutoFriend()
 
 task.spawn(function()
     -- 1. BYPASS TUTORIAL
@@ -535,7 +570,7 @@ task.spawn(function()
     startAutoBuy()
     task.wait(0.5)
     
-    -- 6. AUTO DAILY DEAL & SELL (Terbaru & Gabung Loop)
+    -- 6. AUTO DAILY DEAL & SELL
     startAutoDailyDealAndSell()
     
     print("[+] Selesai! Semua fitur telah dijalankan dan sedang bekerja di latar belakang.")
