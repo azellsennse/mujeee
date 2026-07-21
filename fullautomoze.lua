@@ -461,15 +461,22 @@ local function PerformSell()
     end
 end
 
--- 6. AUTO DAILY DEAL & AUTO SELL (DIGABUNG 1 LOOP, API TERBARU)
+-- 6. AUTO DAILY DEAL (10s) & AUTO SELL (3m)
 local function startAutoDailyDealAndSell()
-    print("[6/6] Mengaktifkan Auto Daily Deal & Auto Sell (1 Loop)...")
+    print("[6/6] Mengaktifkan Auto Daily Deal (10s) & Auto Sell (180s)...")
     
     task.spawn(function()
         local timer = 0
         while true do
             if Config.AutoSell then
-                -- Eksekusi Auto Sell & Daily Deal (setiap 180 detik / 3 menit)
+                -- Daily Deal tiap 10 detik
+                if timer % 10 == 0 and Config.DailyDeal then
+                    task.spawn(function()
+                        pcall(function() Networking.NPCS.UseDailyDealAll:Fire() end)
+                    end)
+                end
+                
+                -- Eksekusi Auto Sell (setiap 180 detik / 3 menit)
                 if timer % 180 == 0 then
                     pcall(function()
                         PerformSell()
@@ -531,11 +538,136 @@ local function startAutoFriend()
     end)
 end
 
+-- FLY TO TARGET (ANTI-BAN)
+local function flyToTarget(targetPos)
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") or not char:FindFirstChild("Humanoid") then return false end
+    
+    local root = char.HumanoidRootPart
+    local hum = char.Humanoid
+    local finalTarget = Vector3.new(targetPos.X, targetPos.Y + 3, targetPos.Z)
+    local distance = (root.Position - finalTarget).Magnitude
+    if distance <= 8 then return true end 
+    
+    local bv = Instance.new("BodyVelocity")
+    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+    bv.Velocity = Vector3.zero
+    bv.Parent = root
+    hum.PlatformStand = true 
+    
+    local noclipConnection
+    noclipConnection = game:GetService("RunService").Stepped:Connect(function()
+        if char then
+            for _, v in pairs(char:GetChildren()) do
+                if v:IsA("BasePart") and v.CanCollide then
+                    v.CanCollide = false
+                end
+            end
+        end
+    end)
+    
+    local speed = 25 
+    local timeout = 0
+    local maxTime = (distance / speed) + 5 
+    while char and root and (root.Position - finalTarget).Magnitude > 5 and timeout < maxTime do
+        local direction = (finalTarget - root.Position).Unit
+        bv.Velocity = direction * speed
+        task.wait(0.05)
+        timeout = timeout + 0.05
+    end
+    
+    if noclipConnection then noclipConnection:Disconnect() end
+    if bv then pcall(function() bv:Destroy() end) end
+    root.Velocity = Vector3.zero
+    hum.PlatformStand = false 
+    task.wait(0.2)
+    return (root.Position - finalTarget).Magnitude <= 15
+end
+
+-- AUTO SEED COLLECTOR (HEADLESS)
+local function startAutoSeedCollector()
+    print("[+] Mengaktifkan Auto Seed Collector (Tumbal)...")
+    local wasCollecting = false
+    
+    task.spawn(function()
+        while true do
+            task.wait(1)
+            local foundSeed = nil
+            local targetPrompt = nil
+            
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("Model") or obj:IsA("BasePart") then
+                    local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
+                    if prompt then
+                        local name = obj.Name:lower()
+                        local actionText = prompt.ActionText:lower()
+                        local isValidSeed = false
+                        
+                        if actionText:match("pick up") or actionText:match("collect") or actionText:match("take") then
+                            isValidSeed = true
+                        elseif name:match("seed") or name:match("gold") or name:match("mega") or name:match("rainbow") or name:match("carrot") or name:match("apple") or name:match("pomegranate") or name:match("coconut") or name:match("cactus") or name:match("mushroom") or name:match("bamboo") or name:match("corn") or name:match("berry") then
+                            if actionText ~= "harvest" and actionText ~= "sit" and actionText ~= "talk" and actionText ~= "buy" and actionText ~= "use" then
+                                isValidSeed = true
+                            end
+                        end
+                        
+                        if isValidSeed then
+                            foundSeed = obj
+                            targetPrompt = prompt
+                            break
+                        end
+                    end
+                end
+            end
+            
+            if foundSeed and targetPrompt then
+                wasCollecting = true
+                local targetPos = foundSeed:IsA("Model") and foundSeed.PrimaryPart and foundSeed.PrimaryPart.Position or foundSeed.Position
+                
+                local reached = flyToTarget(targetPos)
+                if reached then
+                    local char = LocalPlayer.Character
+                    local root = char and char:FindFirstChild("HumanoidRootPart")
+                    if root then
+                        -- Buat pijakan sementara
+                        local tempPlat = Instance.new("Part")
+                        tempPlat.Size = Vector3.new(15, 1, 15)
+                        tempPlat.Position = targetPos - Vector3.new(0, 4, 0)
+                        tempPlat.Anchored = true
+                        tempPlat.Transparency = 0.5
+                        tempPlat.BrickColor = BrickColor.new("Bright green")
+                        tempPlat.Material = Enum.Material.Neon
+                        tempPlat.Parent = workspace
+                        game:GetService("Debris"):AddItem(tempPlat, 5)
+                        
+                        -- INSTANT COLLECT
+                        pcall(fireproximityprompt, targetPrompt)
+                        task.wait(0.5)
+                    end
+                end
+            else
+                if wasCollecting then
+                    wasCollecting = false
+                    print("[+] Selesai mungut barang, kembali ke Steven...")
+                    local steven = Workspace:FindFirstChild("Steven", true)
+                    if steven then
+                        local st = (steven:IsA("Model") and (steven.PrimaryPart or steven:FindFirstChild("HumanoidRootPart"))) or (steven:IsA("BasePart") and steven)
+                        if st then
+                            flyToTarget(st.Position + Vector3.new(0, 0, 3))
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
 -- ==========================
 -- --- EKSEKUSI URUTAN ---
 -- ==========================
 setupAntiAFK()
 startAutoFriend()
+startAutoSeedCollector()
 
 task.spawn(function()
     -- 1. BYPASS TUTORIAL
