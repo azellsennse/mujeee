@@ -215,10 +215,6 @@ local function flyToTarget(targetPos)
     local distance = (root.Position - finalTarget).Magnitude
     if distance <= 8 then return true end 
     
-    local bv = Instance.new("BodyVelocity")
-    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-    bv.Velocity = Vector3.zero
-    bv.Parent = root
     hum.PlatformStand = true 
     
     local noclipConnection
@@ -232,22 +228,23 @@ local function flyToTarget(targetPos)
         end
     end)
     
-    local speed = 25 
-    local timeout = 0
-    local maxTime = (distance / speed) + 5 
-    while char and root and (root.Position - finalTarget).Magnitude > 5 and timeout < maxTime do
-        local direction = (finalTarget - root.Position).Unit
-        bv.Velocity = direction * speed
-        task.wait(0.05)
-        timeout = timeout + 0.05
-    end
+    local speed = 30 -- Diubah jadi 30 sesuai request user (Flight Mode lambat aman)
+    local tweenTime = distance / speed
+    if tweenTime > 15 then tweenTime = 15 end -- Maksimal tunggu 15 detik kalau terlalu jauh banget
+    
+    local TweenService = game:GetService("TweenService")
+    local tweenInfo = TweenInfo.new(tweenTime, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(root, tweenInfo, {CFrame = CFrame.new(finalTarget)})
+    
+    tween:Play()
+    tween.Completed:Wait()
     
     if noclipConnection then noclipConnection:Disconnect() end
-    if bv then pcall(function() bv:Destroy() end) end
     root.Velocity = Vector3.zero
     hum.PlatformStand = false 
+    
     task.wait(0.2)
-    return (root.Position - finalTarget).Magnitude <= 15
+    return (root.Position - finalTarget).Magnitude <= 20
 end
 
 local function ensureAtTarget(targetPos)
@@ -2229,15 +2226,19 @@ do
         end
     end)
     
-    local wasCollecting = false
+    local idleTicks = -1
+    local ignoredSeeds = {}
+    
     task.spawn(function()
         while true do
-            task.wait(1)
+            task.wait(0.1)
             if autoMoonSeed or autoCollectAllSeeds then
                 local WeatherValues = game:GetService("ReplicatedStorage"):FindFirstChild("WeatherValues")
-                local isGold = WeatherValues and WeatherValues:GetAttribute("Goldmoon_Playing")
-                local isRainbow = WeatherValues and WeatherValues:GetAttribute("Rainbowmoon_Playing")
-                local isMega = WeatherValues and WeatherValues:GetAttribute("Megamoon_Playing")
+                local wAttr = workspace:GetAttribute("ActiveWeather") or ""
+                
+                local isGold = (WeatherValues and WeatherValues:GetAttribute("Goldmoon_Playing")) or wAttr:match("Gold")
+                local isRainbow = (WeatherValues and WeatherValues:GetAttribute("Rainbowmoon_Playing")) or wAttr:match("Rainbow")
+                local isMega = (WeatherValues and WeatherValues:GetAttribute("Megamoon_Playing")) or wAttr:match("Mega")
                 
                 local moonActive = (isGold or isRainbow or isMega)
                 
@@ -2254,12 +2255,17 @@ do
                             if prompt then
                                 local name = obj.Name:lower()
                                 local actionText = prompt.ActionText:lower()
+                                local objectText = prompt.ObjectText:lower()
                                 
                                 local isValidSeed = false
-                                if autoMoonSeed and moonActive and (name:match("gold seed") or name:match("rainbow seed") or name:match("mega seed")) then
+                                
+                                -- Cek apakah ini Moon Seed (baik dari nama Part maupun dari ObjectText di Prompt)
+                                local isMoonSeed = name:match("gold") or name:match("rainbow") or name:match("mega") or objectText:match("gold") or objectText:match("rainbow") or objectText:match("mega")
+                                
+                                if autoMoonSeed and moonActive and isMoonSeed then
                                     isValidSeed = true
                                 elseif autoCollectAllSeeds then
-                                    if actionText:match("pick up") or actionText:match("collect") or actionText:match("take") then
+                                    if actionText:match("pick up") or actionText:match("collect") or actionText:match("take") or actionText:match("claim") then
                                         isValidSeed = true
                                     elseif name:match("seed") or name:match("gold") or name:match("mega") or name:match("rainbow") or name:match("carrot") or name:match("apple") or name:match("pomegranate") or name:match("coconut") or name:match("cactus") or name:match("mushroom") or name:match("bamboo") or name:match("corn") or name:match("berry") then
                                         if actionText ~= "harvest" and actionText ~= "sit" and actionText ~= "talk" and actionText ~= "buy" and actionText ~= "use" then
@@ -2268,7 +2274,7 @@ do
                                     end
                                 end
                                 
-                                if isValidSeed then
+                                if isValidSeed and not ignoredSeeds[obj] then
                                     foundSeed = obj
                                     targetPrompt = prompt
                                     break
@@ -2278,34 +2284,59 @@ do
                     end
                     
                     if foundSeed and targetPrompt then
-                        wasCollecting = true
+                        idleTicks = 0
                         moonSeedStatus.Text = "Menuju ke: " .. foundSeed.Name
                         local targetPos = foundSeed:IsA("Model") and foundSeed.PrimaryPart and foundSeed.PrimaryPart.Position or foundSeed.Position
                         
-                        local reached = flyToTarget(targetPos)
-                        if reached then
-                            moonSeedStatus.Text = "Memanen " .. foundSeed.Name .. "..."
+                        -- Pastikan kita teleport ke posisi Part yang memiliki prompt, bukan parent modelnya
+                        if targetPrompt and targetPrompt.Parent and targetPrompt.Parent:IsA("BasePart") then
+                            targetPos = targetPrompt.Parent.Position
+                        end
+                        
+                        -- Buat pijakan sementara DULU sebelum teleport agar aman
+                        local tempPlat = Instance.new("Part")
+                        tempPlat.Size = Vector3.new(15, 1, 15)
+                        tempPlat.Position = targetPos - Vector3.new(0, 4, 0)
+                        tempPlat.Anchored = true
+                        tempPlat.Transparency = 0.5
+                        tempPlat.BrickColor = BrickColor.new("Bright green")
+                        tempPlat.Material = Enum.Material.Neon
+                        tempPlat.Parent = workspace
+                        game:GetService("Debris"):AddItem(tempPlat, 5)
+
+                        -- FLIGHT MODE & COLLECT
+                        local char = game.Players.LocalPlayer.Character
+                        local root = char and char:FindFirstChild("HumanoidRootPart")
+                        if root then
+                            -- Terbang menggunakan Tween (Kecepatan 30)
+                            local reached = flyToTarget(targetPos)
                             
-                            -- Buat pijakan sementara agar tidak jatuh jika map di-nuke
-                            local tempPlat = Instance.new("Part")
-                            tempPlat.Size = Vector3.new(15, 1, 15)
-                            tempPlat.Position = targetPos - Vector3.new(0, 4, 0)
-                            tempPlat.Anchored = true
-                            tempPlat.Transparency = 0.5
-                            tempPlat.BrickColor = BrickColor.new("Bright green")
-                            tempPlat.Material = Enum.Material.Neon
-                            tempPlat.Parent = workspace
-                            
-                            -- Hapus pijakan otomatis setelah 5 detik agar tidak nyampah
-                            game:GetService("Debris"):AddItem(tempPlat, 5)
-                            
-                            -- INSTANT COLLECT
-                            pcall(fireproximityprompt, targetPrompt)
-                            task.wait(0.5)
+                            if reached then
+                                moonSeedStatus.Text = "Memanen " .. foundSeed.Name .. "..."
+                                
+                                -- BUKA KUNCI PROMPT AGAR 100% BISA DITEKAN (Solusi kadang gagal ambil)
+                                targetPrompt.RequiresLineOfSight = false
+                                targetPrompt.MaxActivationDistance = 9999
+                                if targetPrompt.HoldDuration > 0 then targetPrompt.HoldDuration = 0 end
+                                
+                                -- SPAM KLIK SUPER BARBAR DI BACKGROUND (Spam 20x)
+                                task.spawn(function()
+                                    for i=1, 20 do
+                                        pcall(fireproximityprompt, targetPrompt)
+                                        task.wait(0.05)
+                                    end
+                                end)
+                                
+                                ignoredSeeds[foundSeed] = true
+                            end
                         end
                     else
-                        if wasCollecting then
-                            wasCollecting = false
+                        if idleTicks >= 0 and idleTicks < 30 then
+                            idleTicks = idleTicks + 1
+                            local sLeft = 3 - math.floor(idleTicks / 10)
+                            moonSeedStatus.Text = "Menunggu seed baru... (" .. tostring(sLeft) .. "s)"
+                        elseif idleTicks == 30 then
+                            idleTicks = -1
                             moonSeedStatus.Text = "Selesai! Kembali ke Steven..."
                             
                             local steven = workspace:FindFirstChild("Steven", true)
@@ -2323,11 +2354,13 @@ do
                             task.wait(1.5)
                         end
                         
-                        if autoMoonSeed and moonActive and not autoCollectAllSeeds then
-                            moonSeedStatus.Text = "Moon Aktif! Menunggu Seed..."
-                        else
-                            moonSeedStatus.Text = "Seed Collector: Aktif (Standby)"
-                            moonSeedStatus.TextColor3 = Color3.fromRGB(134, 239, 172)
+                        if idleTicks == -1 then
+                            if autoMoonSeed and moonActive and not autoCollectAllSeeds then
+                                moonSeedStatus.Text = "Moon Aktif! Menunggu Seed..."
+                            else
+                                moonSeedStatus.Text = "Seed Collector: Aktif (Standby)"
+                                moonSeedStatus.TextColor3 = Color3.fromRGB(134, 239, 172)
+                            end
                         end
                     end
                 else
@@ -3068,7 +3101,9 @@ task.spawn(function()
                 for _, sprName in ipairs(selectedSprinklerTool) do
                     local spTool = equipTool(sprName)
                     if spTool and RemoteEvent then
-                        task.wait(0.3)
+                        -- [FIX KENTANG] Tunggu lebih lama agar server memproses Tool sudah dipegang
+                        task.wait(1)
+                        
                         local angleDeg = (placedCount - 1) * (360 / math.max(1, totalSprinklers))
                         local angleRad = math.rad(angleDeg)
                         local c = math.cos(angleRad)
@@ -3082,11 +3117,19 @@ task.spawn(function()
                         local groundY = ref and (ref.Position.Y + ref.Size.Y/2) or plantPos.Y
                         placePos = Vector3.new(placePos.X, groundY, placePos.Z)
                         
-                        pcall(function() Networking.Place.PlaceSprinkler:Fire(placePos, spTool.Name, spTool, plotNum) end)
+                        -- [FIX KENTANG] Spam penempatan 4x agar pasti masuk meski ping merah / lag
+                        task.spawn(function()
+                            for i=1, 4 do
+                                pcall(function() Networking.Place.PlaceSprinkler:Fire(placePos, spTool.Name, spTool, plotNum) end)
+                                task.wait(0.3)
+                            end
+                        end)
                         
                         if not lastSprinklerTime[selectedWaterOwner] then lastSprinklerTime[selectedWaterOwner] = {} end
                         lastSprinklerTime[selectedWaterOwner][sprName] = os.clock()
-                        task.wait(0.5)
+                        
+                        -- [FIX KENTANG] Tunggu animasi/server memproses penempatan selesai
+                        task.wait(1.5)
                     end
                     placedCount = placedCount + 1
                 end
