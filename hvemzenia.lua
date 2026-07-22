@@ -123,7 +123,10 @@ task.spawn(function()
 end)
 
 local Networking = require(ReplicatedStorage.SharedModules.Networking)
-local FruitVisualizer = require(LocalPlayer.PlayerScripts.Controllers.FruitVisualizerController)
+local FruitVisualizer
+pcall(function()
+    FruitVisualizer = require(LocalPlayer.PlayerScripts.Controllers.FruitVisualizerController)
+end)
 
 local SharedModules = ReplicatedStorage:WaitForChild("SharedModules", 5)
 local Packet = SharedModules and SharedModules:WaitForChild("Packet", 5)
@@ -3685,7 +3688,8 @@ do
         warn("========== ERROR KALKULATOR GARDEN ==========")
         warn(err)
     end
-end)
+        end
+    end)
 end -- end do block for Garden Value Scanner
 
 -- ==========================================
@@ -3870,6 +3874,7 @@ task.spawn(function()
     
     if not success then
         warn("ESP LOOP ERROR:", err);
+    end
     end
 end)
 end -- end do block for ESP Scanner
