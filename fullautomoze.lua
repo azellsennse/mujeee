@@ -640,9 +640,20 @@ local function startAutoSeedCollector()
                         tempPlat.Parent = workspace
                         game:GetService("Debris"):AddItem(tempPlat, 5)
                         
-                        -- INSTANT COLLECT
-                        pcall(fireproximityprompt, targetPrompt)
-                        task.wait(0.5)
+                        -- BUKA KUNCI PROMPT AGAR 100% BISA DITEKAN
+                        targetPrompt.RequiresLineOfSight = false
+                        targetPrompt.MaxActivationDistance = 9999
+                        if targetPrompt.HoldDuration > 0 then targetPrompt.HoldDuration = 0 end
+                        
+                        -- SPAM KLIK SUPER BARBAR DI BACKGROUND (Spam 20x)
+                        task.spawn(function()
+                            for i=1, 20 do
+                                pcall(fireproximityprompt, targetPrompt)
+                                task.wait(0.05)
+                            end
+                        end)
+                        
+                        task.wait(1) -- Beri waktu sebentar untuk memastikan barang masuk
                     end
                 end
             else
