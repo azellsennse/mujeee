@@ -1,4 +1,4 @@
-﻿-- ==========================================
+-- ==========================================
 -- SCRIPT PERSONAL (UPDATED BY ANTIGRAVITY - REAL HISTORY UI)
 -- SCRIPT INI BISA DI-CUSTOM LANGSUNG DARI DALAM KODE
 -- ==========================================
@@ -790,4 +790,48 @@ startAutoFriend()
 startAutoSeedCollector()
 
 task.spawn(function()
+    -- 1. BYPASS TUTORIAL
+    local function isInTutorial()
+        local char = LocalPlayer.Character
+        return Workspace:GetAttribute("InTutorial") or (char and char:GetAttribute("InTutorial"))
+    end
+
+    if isInTutorial() then
+        completeTutorialInstantly()
+        local waitTime = 0
+        while isInTutorial() do
+            task.wait(0.5)
+            waitTime = waitTime + 0.5
+            if waitTime >= 30 then
+                print("[!] Tutorial stuck selama 30 detik! Memaksa rejoin...")
+                local ts = game:GetService("TeleportService")
+                pcall(function() ts:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
+                task.wait(3)
+                pcall(function() ts:Teleport(game.PlaceId, LocalPlayer) end)
+                break
+            end
+        end
+        task.wait(1)
+    end
     
+    -- 2. TELEPORT KE STEVEN
+    teleportToSteven()
+    task.wait(1)
+    
+    -- 3. AUTO CLAIM MAIL
+    startAutoClaimMail()
+    task.wait(0.5)
+    
+    -- 4. FPS BOOST
+    applyFpsBoost()
+    task.wait(0.5)
+    
+    -- 5. AUTO BUY
+    startAutoBuy()
+    task.wait(0.5)
+    
+    -- 6. AUTO DAILY DEAL & SELL
+    startAutoDailyDealAndSell()
+    
+    print("[+] Selesai! Semua fitur telah dijalankan dan sedang bekerja di latar belakang.")
+end)
