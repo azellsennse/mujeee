@@ -200,7 +200,7 @@ end
 local function applyFpsBoost()
     print("[4/6] Mengaktifkan Brutal FPS Boost & Custom Black Screen...")
     
-    local objectsToDestroy = {"MidLayer", "Baseplate", "Middle", "Grass", "Gardens", "SpawnPoint", "Trees", "Decorations", "Map"}
+    local objectsToDestroy = {"MidLayer", "Baseplate", "Middle", "Grass", "Gardens", "SpawnPoint", "Trees", "Decorations"}
     for _, name in pairs(objectsToDestroy) do 
         if Workspace:FindFirstChild(name) then pcall(function() Workspace[name]:Destroy() end) end 
     end
@@ -223,9 +223,13 @@ local function applyFpsBoost()
     local platName = "AntiVoidPlatform_Steven"
     
     local function isProtected(desc)
+        if not desc then return true end
         if char and desc:IsDescendantOf(char) then return true end
         if desc.Name == platName or desc.Name == "TempSeedPlatform" or desc.Name == "Terrain" or desc.Name == "Camera" then return true end
         if desc:IsA("ProximityPrompt") or desc:FindFirstChildWhichIsA("ProximityPrompt") then return true end
+        
+        local dName = desc.Name:lower()
+        if dName:match("seed") or dName:match("drop") or dName:match("gift") or dName:match("fruit") or dName:match("coin") or dName:match("bag") then return true end
         
         -- PROTECT ALL NPCs (Mencegah semua NPC terhapus)
         local current = desc
@@ -584,6 +588,32 @@ local function startAutoDailyDealAndSell()
     end)
 end
 
+-- AUTO RECONNECT (ERROR CODE 529 DLL)
+local function setupAutoReconnect()
+    print("[+] Auto Reconnect (Error Handler) diaktifkan.")
+    local TeleportService = game:GetService("TeleportService")
+    local GuiService = game:GetService("GuiService")
+    
+    -- Metode 1: Menggunakan GuiService ErrorMessageChanged
+    GuiService.ErrorMessageChanged:Connect(function()
+        task.wait(2)
+        pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+    end)
+    
+    -- Metode 2: Menggunakan CoreGui PromptOverlay (Cadangan)
+    pcall(function()
+        local promptOverlay = CoreGui:FindFirstChild("RobloxPromptGui") and CoreGui.RobloxPromptGui:FindFirstChild("promptOverlay")
+        if promptOverlay then
+            promptOverlay.ChildAdded:Connect(function(child)
+                if child.Name == "ErrorPrompt" then
+                    task.wait(2)
+                    pcall(function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+                end
+            end)
+        end
+    end)
+end
+
 -- ANTI AFK
 local function setupAntiAFK()
     print("[+] Anti-AFK diaktifkan.")
@@ -696,14 +726,19 @@ local function startAutoSeedCollector()
                     local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
                     if prompt then
                         local name = obj.Name:lower()
+                        local parentName = (obj.Parent and obj.Parent.Name) and obj.Parent.Name:lower() or ""
                         local actionText = prompt.ActionText:lower()
+                        local objectText = prompt.ObjectText:lower()
                         local isValidSeed = false
                         
-                        if actionText:match("pick up") or actionText:match("collect") or actionText:match("take") then
+                        if actionText:match("pick up") or actionText:match("collect") or actionText:match("take") or actionText:match("grab") or actionText:match("loot") or actionText:match("claim") then
                             isValidSeed = true
-                        elseif name:match("seed") or name:match("gold") or name:match("mega") or name:match("rainbow") or name:match("carrot") or name:match("apple") or name:match("pomegranate") or name:match("coconut") or name:match("cactus") or name:match("mushroom") or name:match("bamboo") or name:match("corn") or name:match("berry") then
-                            if actionText ~= "harvest" and actionText ~= "sit" and actionText ~= "talk" and actionText ~= "buy" and actionText ~= "use" then
-                                isValidSeed = true
+                        else
+                            local combinedText = name .. " " .. parentName .. " " .. objectText
+                            if combinedText:match("seed") or combinedText:match("gold") or combinedText:match("mega") or combinedText:match("rainbow") or combinedText:match("mutation") or combinedText:match("carrot") or combinedText:match("apple") or combinedText:match("pomegranate") or combinedText:match("coconut") or combinedText:match("cactus") or combinedText:match("mushroom") or combinedText:match("bamboo") or combinedText:match("corn") or combinedText:match("berry") then
+                                if actionText ~= "harvest" and actionText ~= "sit" and actionText ~= "talk" and actionText ~= "buy" and actionText ~= "use" then
+                                    isValidSeed = true
+                                end
                             end
                         end
                         
@@ -785,6 +820,7 @@ end
 -- ==========================
 -- --- EKSEKUSI URUTAN ---
 -- ==========================
+setupAutoReconnect()
 setupAntiAFK()
 startAutoFriend()
 startAutoSeedCollector()
