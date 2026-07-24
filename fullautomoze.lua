@@ -1,5 +1,6 @@
--- ==========================================
--- SCRIPT BUYER (UPDATED BY ANTIGRAVITY - REAL HISTORY UI)
+﻿-- ==========================================
+-- SCRIPT PERSONAL (UPDATED BY ANTIGRAVITY - REAL HISTORY UI)
+-- SCRIPT INI BISA DI-CUSTOM LANGSUNG DARI DALAM KODE
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -35,16 +36,19 @@ local function logPurchase(itemName)
     end
 end
 
+-- =========================================================================
 -- MENGAMBIL KONFIGURASI DARI LUAR (GETGENV)
 local Config = getgenv().MuzeAutoBuyConfig or {
+    BlackScreen = true,
     BuySeeds = false,
     BuyGears = false,
-    AutoSell = true, 
-    DailyDeal = true,
+    AutoSell = false,
+    DailyDeal = false,
     Delay = 10,
     Seeds = {},
     Gears = {}
 }
+-- =========================================================================
 
 -- 1. BYPASS TUTORIAL
 local function completeTutorialInstantly()
@@ -83,8 +87,19 @@ local function teleportToSteven()
                     plat.Size = Vector3.new(50, 2, 50)
                     plat.Position = root.Position - Vector3.new(0, 4, 0)
                     plat.Anchored = true
-                    plat.Transparency = 1 
+                    plat.Transparency = 0.5 
+                    plat.BrickColor = BrickColor.new("Bright green")
+                    plat.Material = Enum.Material.Neon
                     plat.Parent = Workspace
+                end
+                
+                -- Anchor Steven agar tidak jatuh saat map dihancurkan
+                if target:IsA("Model") then
+                    for _, v in ipairs(target:GetDescendants()) do
+                        if v:IsA("BasePart") then v.Anchored = true end
+                    end
+                elseif target:IsA("BasePart") then
+                    target.Anchored = true
                 end
             end
             task.wait(5)
@@ -172,17 +187,22 @@ local function nukeEnvironment()
             Terrain.WaterReflectance = 0
             Terrain.WaterTransparency = 1
             Terrain.Decoration = false
+            Terrain:Clear() -- MENGHAPUS SEMUA TERRAIN GEOMETRY (MENGHEMAT RATUSAN MB RAM)
         end)
     end
+    pcall(function()
+        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+        UserSettings():GetService("UserGameSettings").MasterVolume = 0
+    end)
 end
 
 -- 4. FPS BOOST & BLACK SCREEN
 local function applyFpsBoost()
     print("[4/6] Mengaktifkan Brutal FPS Boost & Custom Black Screen...")
     
-    local objectsToDestroy = {"MidLayer", "Baseplate", "Middle", "Grass", "Gardens", "SpawnPoint"}
+    local objectsToDestroy = {"MidLayer", "Baseplate", "Middle", "Grass", "Gardens", "SpawnPoint", "Trees", "Decorations", "Map"}
     for _, name in pairs(objectsToDestroy) do 
-        if Workspace:FindFirstChild(name) then Workspace[name]:Destroy() end 
+        if Workspace:FindFirstChild(name) then pcall(function() Workspace[name]:Destroy() end) end 
     end
     
     pcall(function()
@@ -198,150 +218,224 @@ local function applyFpsBoost()
     
     nukeEnvironment()
     
+    -- ULTIMATE BRUTALITY (MENGHAPUS SELURUH FISIK MAP KECUALI KITA, NPC, DAN PLATFORM)
     local char = LocalPlayer.Character
-    for _, desc in ipairs(Workspace:GetDescendants()) do
-        if char and desc:IsDescendantOf(char) then continue end
-        superBrutalize(desc)
+    local platName = "AntiVoidPlatform_Steven"
+    
+    local function isProtected(desc)
+        if char and desc:IsDescendantOf(char) then return true end
+        if desc.Name == platName or desc.Name == "TempSeedPlatform" or desc.Name == "Terrain" or desc.Name == "Camera" then return true end
+        if desc:IsA("ProximityPrompt") or desc:FindFirstChildWhichIsA("ProximityPrompt") then return true end
+        
+        -- PROTECT ALL NPCs (Mencegah semua NPC terhapus)
+        local current = desc
+        local depth = 0
+        while current and current ~= Workspace and depth < 6 do
+            if current:FindFirstChildWhichIsA("Humanoid") then return true end
+            if current.Name:lower() == "npcs" or current.Name:lower() == "npc" then return true end
+            current = current.Parent
+            depth = depth + 1
+        end
+        
+        return false
     end
+    
+    for _, desc in ipairs(Workspace:GetDescendants()) do
+        if isProtected(desc) then continue end
+        
+        if desc:IsA("BasePart") or desc:IsA("MeshPart") or desc:IsA("UnionOperation") then
+            pcall(function() desc:Destroy() end)
+        elseif desc:IsA("Texture") or desc:IsA("Decal") or desc:IsA("ParticleEmitter") or desc:IsA("Beam") or desc:IsA("Trail") then
+            pcall(function() desc:Destroy() end)
+        end
+    end
+    
+    -- AUTO DELETE GRAFIS BARU (MENCEGAH RAM LEAK) DENGAN DEFER AGAR CPU TIDAK SPIKE
+    Workspace.DescendantAdded:Connect(function(desc)
+        task.defer(function()
+            if not desc or not desc.Parent then return end
+            if isProtected(desc) then return end
+            
+            if desc:IsA("BasePart") or desc:IsA("MeshPart") or desc:IsA("UnionOperation") then
+                pcall(function() desc:Destroy() end)
+            elseif desc:IsA("Texture") or desc:IsA("Decal") or desc:IsA("ParticleEmitter") or desc:IsA("Beam") or desc:IsA("Trail") or desc:IsA("Sound") then
+                pcall(function() desc:Destroy() end)
+            end
+        end)
+    end)
     
     Workspace.CurrentCamera.FieldOfView = 30
 
     pcall(function()
-        local bgGui = Instance.new("ScreenGui")
-        bgGui.Name = "AFK_BlackScreen"
-        bgGui.IgnoreGuiInset = true
-        bgGui.ResetOnSpawn = false
-        
-        local bgFrame = Instance.new("Frame")
-        bgFrame.Size = UDim2.new(1, 0, 1, 0)
-        bgFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        bgFrame.BorderSizePixel = 0
-        bgFrame.Parent = bgGui
+        if Config.BlackScreen then
+            local bgGui = Instance.new("ScreenGui")
+            bgGui.Name = "AFK_BlackScreen"
+            bgGui.IgnoreGuiInset = true
+            bgGui.ResetOnSpawn = false
+            
+            local bgFrame = Instance.new("Frame")
+            bgFrame.Size = UDim2.new(1, 0, 1, 0)
+            bgFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            bgFrame.BorderSizePixel = 0
+            bgFrame.Parent = bgGui
 
-        local leftImage = Instance.new("ImageLabel")
-        leftImage.Size = UDim2.new(0.3, 0, 0.6, 0) 
-        leftImage.Position = UDim2.new(0.05, 0, 0.5, 0)
-        leftImage.AnchorPoint = Vector2.new(0, 0.5)
-        leftImage.BackgroundTransparency = 1
-        leftImage.ScaleType = Enum.ScaleType.Fit
-        leftImage.Image = "rbxassetid://79880397850563"
-        leftImage.Parent = bgFrame
+            local leftImage = Instance.new("ImageLabel")
+            leftImage.Size = UDim2.new(0.3, 0, 0.6, 0) 
+            leftImage.Position = UDim2.new(0.05, 0, 0.5, 0)
+            leftImage.AnchorPoint = Vector2.new(0, 0.5)
+            leftImage.BackgroundTransparency = 1
+            leftImage.ScaleType = Enum.ScaleType.Fit
+            leftImage.Image = "rbxassetid://79880397850563"
+            leftImage.Parent = bgFrame
 
-        local rightImage = Instance.new("ImageLabel")
-        rightImage.Size = UDim2.new(0.3, 0, 0.6, 0)
-        rightImage.Position = UDim2.new(0.95, 0, 0.5, 0)
-        rightImage.AnchorPoint = Vector2.new(1, 0.5)
-        rightImage.BackgroundTransparency = 1
-        rightImage.ScaleType = Enum.ScaleType.Fit
-        rightImage.Image = "rbxassetid://104624206636533"
-        rightImage.Parent = bgFrame
-        
-        local textLabel = Instance.new("TextLabel")
-        textLabel.Size = UDim2.new(0.9, 0, 0.25, 0)
-        textLabel.Position = UDim2.new(0.5, 0, 0.95, 0)
-        textLabel.AnchorPoint = Vector2.new(0.5, 1)
-        textLabel.BackgroundTransparency = 1
-        textLabel.Text = "AFK MODE ACTIVE\nFENG JIU MY BINI JIR"
-        textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-        textLabel.TextScaled = true
-        textLabel.TextWrapped = true
-        textLabel.Font = Enum.Font.Code
-        textLabel.ZIndex = 10
-        textLabel.Parent = bgFrame
-        
-        local centerLabel = Instance.new("TextLabel")
-        centerLabel.Size = UDim2.new(0.4, 0, 0.2, 0)
-        centerLabel.Position = UDim2.new(0.5, 0, 0.4, 0)
-        centerLabel.AnchorPoint = Vector2.new(0.5, 0.5)
-        centerLabel.BackgroundTransparency = 1
-        centerLabel.Text = "Loading..."
-        centerLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
-        centerLabel.TextScaled = true
-        centerLabel.TextWrapped = false
-        centerLabel.Font = Enum.Font.GothamBold
-        centerLabel.ZIndex = 10
-        centerLabel.Parent = bgFrame
-        
-        local textConstraint = Instance.new("UITextSizeConstraint")
-        textConstraint.MaxTextSize = 25
-        textConstraint.Parent = centerLabel
-        
-        local centerStroke = Instance.new("UIStroke")
-        centerStroke.Thickness = 1.5
-        centerStroke.Color = Color3.fromRGB(0, 0, 0)
-        centerStroke.Parent = centerLabel
-        
-        -- HISTORY UI 
-        local historyLabel = Instance.new("TextLabel")
-        historyLabel.Size = UDim2.new(0.4, 0, 0.3, 0)
-        historyLabel.Position = UDim2.new(0.5, 0, 0.5, 0) 
-        historyLabel.AnchorPoint = Vector2.new(0.5, 0)
-        historyLabel.BackgroundTransparency = 1
-        historyLabel.Text = ""
-        historyLabel.TextColor3 = Color3.fromRGB(150, 255, 150)
-        historyLabel.TextScaled = false
-        historyLabel.TextSize = 14 
-        historyLabel.TextXAlignment = Enum.TextXAlignment.Center
-        historyLabel.TextYAlignment = Enum.TextYAlignment.Top
-        historyLabel.TextWrapped = true
-        historyLabel.Font = Enum.Font.GothamBold
-        historyLabel.ZIndex = 10
-        historyLabel.Parent = bgFrame
-        
-        local historyStroke = Instance.new("UIStroke")
-        historyStroke.Thickness = 1.2
-        historyStroke.Color = Color3.fromRGB(0, 0, 0)
-        historyStroke.Parent = historyLabel
-        
-        task.spawn(function()
-            while true do
-                local sheckles = "0"
-                pcall(function()
-                    sheckles = tostring(LocalPlayer.leaderstats.Sheckles.Value)
-                end)
-                local function formatNumber(n)
-                    n = tonumber(n) or 0
-                    if n >= 1e12 then return string.format("%.2fT", n / 1e12)
-                    elseif n >= 1e9 then return string.format("%.2fB", n / 1e9)
-                    elseif n >= 1e6 then return string.format("%.2fM", n / 1e6)
-                    elseif n >= 1e3 then return string.format("%.1fK", n / 1e3)
-                    else return tostring(n) end
+            local rightImage = Instance.new("ImageLabel")
+            rightImage.Size = UDim2.new(0.3, 0, 0.6, 0)
+            rightImage.Position = UDim2.new(0.95, 0, 0.5, 0)
+            rightImage.AnchorPoint = Vector2.new(1, 0.5)
+            rightImage.BackgroundTransparency = 1
+            rightImage.ScaleType = Enum.ScaleType.Fit
+            rightImage.Image = "rbxassetid://104624206636533"
+            rightImage.Parent = bgFrame
+            
+            local textLabel = Instance.new("TextLabel")
+            textLabel.Size = UDim2.new(0.9, 0, 0.25, 0)
+            textLabel.Position = UDim2.new(0.5, 0, 0.95, 0)
+            textLabel.AnchorPoint = Vector2.new(0.5, 1)
+            textLabel.BackgroundTransparency = 1
+            textLabel.Text = "AFK MODE ACTIVE\nFENG JIU MY BINI JIR"
+            textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            textLabel.TextScaled = true
+            textLabel.TextWrapped = true
+            textLabel.Font = Enum.Font.Code
+            textLabel.ZIndex = 10
+            textLabel.Parent = bgFrame
+            
+            local centerLabel = Instance.new("TextLabel")
+            centerLabel.Size = UDim2.new(0.4, 0, 0.2, 0)
+            centerLabel.Position = UDim2.new(0.5, 0, 0.4, 0)
+            centerLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+            centerLabel.BackgroundTransparency = 1
+            centerLabel.Text = "Loading..."
+            centerLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+            centerLabel.TextScaled = true
+            centerLabel.TextWrapped = false
+            centerLabel.Font = Enum.Font.GothamBold
+            centerLabel.ZIndex = 10
+            centerLabel.Parent = bgFrame
+            
+            local textConstraint = Instance.new("UITextSizeConstraint")
+            textConstraint.MaxTextSize = 25
+            textConstraint.Parent = centerLabel
+            
+            local centerStroke = Instance.new("UIStroke")
+            centerStroke.Thickness = 1.5
+            centerStroke.Color = Color3.fromRGB(0, 0, 0)
+            centerStroke.Parent = centerLabel
+            
+            -- HISTORY UI 
+            local historyLabel = Instance.new("TextLabel")
+            historyLabel.Size = UDim2.new(0.4, 0, 0.3, 0)
+            historyLabel.Position = UDim2.new(0.5, 0, 0.5, 0) 
+            historyLabel.AnchorPoint = Vector2.new(0.5, 0)
+            historyLabel.BackgroundTransparency = 1
+            historyLabel.Text = ""
+            historyLabel.TextColor3 = Color3.fromRGB(150, 255, 150)
+            historyLabel.TextScaled = false
+            historyLabel.TextSize = 14 
+            historyLabel.TextXAlignment = Enum.TextXAlignment.Center
+            historyLabel.TextYAlignment = Enum.TextYAlignment.Top
+            historyLabel.TextWrapped = true
+            historyLabel.Font = Enum.Font.GothamBold
+            historyLabel.ZIndex = 10
+            historyLabel.Parent = bgFrame
+            
+            local historyStroke = Instance.new("UIStroke")
+            historyStroke.Thickness = 1.2
+            historyStroke.Color = Color3.fromRGB(0, 0, 0)
+            historyStroke.Parent = historyLabel
+            
+            -- PERFORMANCE UI
+            local perfLabel = Instance.new("TextLabel")
+            perfLabel.Size = UDim2.new(0.5, 0, 0.05, 0)
+            perfLabel.Position = UDim2.new(0.5, 0, 0.02, 0) 
+            perfLabel.AnchorPoint = Vector2.new(0.5, 0)
+            perfLabel.BackgroundTransparency = 1
+            perfLabel.Text = "FPS: - | Ping: - ms | Mem: - MB"
+            perfLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+            perfLabel.TextScaled = false
+            perfLabel.TextSize = 14
+            perfLabel.Font = Enum.Font.Code
+            perfLabel.ZIndex = 10
+            perfLabel.Parent = bgFrame
+            
+            local perfStroke = Instance.new("UIStroke")
+            perfStroke.Thickness = 1
+            perfStroke.Color = Color3.fromRGB(0, 0, 0)
+            perfStroke.Parent = perfLabel
+            
+            task.spawn(function()
+                local Stats = game:GetService("Stats")
+                while true do
+                    local sheckles = "0"
+                    pcall(function()
+                        sheckles = tostring(LocalPlayer.leaderstats.Sheckles.Value)
+                    end)
+                    local function formatNumber(n)
+                        n = tonumber(n) or 0
+                        if n >= 1e12 then return string.format("%.2fT", n / 1e12)
+                        elseif n >= 1e9 then return string.format("%.2fB", n / 1e9)
+                        elseif n >= 1e6 then return string.format("%.2fM", n / 1e6)
+                        elseif n >= 1e3 then return string.format("%.1fK", n / 1e3)
+                        else return tostring(n) end
+                    end
+                    centerLabel.Text = "ðŸ‘¤ " .. LocalPlayer.Name .. "\nðŸ’° " .. formatNumber(sheckles)
+                    
+                    -- Merangkai History Log Terbaru
+                    local historyLines = {}
+                    for i, data in ipairs(PurchaseHistoryLog) do
+                        table.insert(historyLines, data.name .. " " .. data.count .. "x")
+                    end
+                    
+                    if #historyLines > 0 then
+                        historyLabel.Text = "ðŸ›’ HISTORY (REAL-TIME):\n" .. table.concat(historyLines, "\n")
+                    else
+                        historyLabel.Text = ""
+                    end
+                    
+                    -- Update Performance Stats
+                    local ping = "0"
+                    pcall(function() ping = string.split(Stats.Network.ServerStatsItem["Data Ping"]:GetValueString(), " ")[1] or "0" end)
+                    
+                    local fps = "0"
+                    pcall(function() fps = tostring(math.floor(Workspace:GetRealPhysicsFPS())) end)
+                    
+                    local mem = "0"
+                    pcall(function() mem = string.split(Stats.PerformanceStats.Memory:GetValueString(), " ")[1] or "0" end)
+                    
+                    perfLabel.Text = string.format("ðŸŽ® FPS: %s  |  ðŸ“¶ Ping: %s ms  |  ðŸ§  Mem: %s MB", fps, ping, mem)
+                    
+                    task.wait(1)
                 end
-                centerLabel.Text = "👤 " .. LocalPlayer.Name .. "\n💰 " .. formatNumber(sheckles)
-                
-                -- Merangkai History Log Terbaru
-                local historyLines = {}
-                for i, data in ipairs(PurchaseHistoryLog) do
-                    table.insert(historyLines, data.name .. " " .. data.count .. "x")
-                end
-                
-                if #historyLines > 0 then
-                    historyLabel.Text = "🛒 HISTORY (REAL-TIME):\n" .. table.concat(historyLines, "\n")
-                else
-                    historyLabel.Text = ""
-                end
-                
-                task.wait(1)
+            end)
+
+            local success = pcall(function() bgGui.Parent = CoreGui end)
+            if not success then
+                bgGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
             end
-        end)
 
-        local success = pcall(function() bgGui.Parent = CoreGui end)
-        if not success then
-            bgGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+            RunService:Set3dRenderingEnabled(false)
         end
-
-        RunService:Set3dRenderingEnabled(false)
         if setfpscap then setfpscap(15) end
     end)
 end
 
 -- 5. AUTO BUY (MENGGUNAKAN GETGENV CONFIG & API TERBARU ANTI-PATCH)
 local function startAutoBuy()
-    print("[5/6] Mengaktifkan Auto Buy (Dari Config Luar, Smart Anti-Patch)...")
+    print("[5/6] Mengaktifkan Auto Buy (Dari Config Dalam, Smart Anti-Patch)...")
     
     task.spawn(function()
         while true do
-            -- Membeli Seed jika diaktifkan di config luar
+            -- Membeli Seed jika diaktifkan di config dalam
             if Config.BuySeeds and Config.Seeds then
                 for itemName, isEnabled in pairs(Config.Seeds) do 
                     if isEnabled == true then
@@ -363,7 +457,7 @@ local function startAutoBuy()
                 end
             end
             
-            -- Membeli Gear jika diaktifkan di config luar
+            -- Membeli Gear jika diaktifkan di config dalam
             if Config.BuyGears and Config.Gears then
                 for itemName, isEnabled in pairs(Config.Gears) do 
                     if isEnabled == true then
@@ -558,7 +652,7 @@ local function flyToTarget(targetPos)
     local noclipConnection
     noclipConnection = game:GetService("RunService").Stepped:Connect(function()
         if char then
-            for _, v in pairs(char:GetChildren()) do
+            for _, v in ipairs(char:GetChildren()) do
                 if v:IsA("BasePart") and v.CanCollide then
                     v.CanCollide = false
                 end
@@ -591,11 +685,13 @@ local function startAutoSeedCollector()
     
     task.spawn(function()
         while true do
-            task.wait(1)
+            task.wait(2.5) -- Diperlambat agar CPU tidak panas
             local foundSeed = nil
             local targetPrompt = nil
             
-            for _, obj in ipairs(workspace:GetDescendants()) do
+            local descendants = workspace:GetDescendants()
+            for i, obj in ipairs(descendants) do
+                if i % 1000 == 0 then task.wait() end -- YIELD PENTING: Mencegah CPU Spike / Lag saat looping
                 if obj:IsA("Model") or obj:IsA("BasePart") then
                     local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
                     if prompt then
@@ -622,15 +718,27 @@ local function startAutoSeedCollector()
             
             if foundSeed and targetPrompt then
                 wasCollecting = true
-                local targetPos = foundSeed:IsA("Model") and foundSeed.PrimaryPart and foundSeed.PrimaryPart.Position or foundSeed.Position
                 
-                local reached = flyToTarget(targetPos)
-                if reached then
+                -- AMBIL POSISI DENGAN AMAN (Bisa dari Part, Attachment, atau dalam Model)
+                local targetPos = nil
+                if targetPrompt.Parent:IsA("BasePart") then
+                    targetPos = targetPrompt.Parent.Position
+                elseif targetPrompt.Parent:IsA("Attachment") then
+                    targetPos = targetPrompt.Parent.WorldPosition
+                else
+                    local part = foundSeed:IsA("BasePart") and foundSeed or foundSeed:FindFirstChildWhichIsA("BasePart", true)
+                    if part then targetPos = part.Position end
+                end
+                
+                if targetPos then
+                    local reached = flyToTarget(targetPos)
+                    if reached then
                     local char = LocalPlayer.Character
                     local root = char and char:FindFirstChild("HumanoidRootPart")
                     if root then
                         -- Buat pijakan sementara
                         local tempPlat = Instance.new("Part")
+                        tempPlat.Name = "TempSeedPlatform"
                         tempPlat.Size = Vector3.new(15, 1, 15)
                         tempPlat.Position = targetPos - Vector3.new(0, 4, 0)
                         tempPlat.Anchored = true
@@ -655,6 +763,7 @@ local function startAutoSeedCollector()
                         
                         task.wait(1) -- Beri waktu sebentar untuk memastikan barang masuk
                     end
+                end
                 end
             else
                 if wasCollecting then
@@ -681,48 +790,4 @@ startAutoFriend()
 startAutoSeedCollector()
 
 task.spawn(function()
-    -- 1. BYPASS TUTORIAL
-    local function isInTutorial()
-        local char = LocalPlayer.Character
-        return Workspace:GetAttribute("InTutorial") or (char and char:GetAttribute("InTutorial"))
-    end
-
-    if isInTutorial() then
-        completeTutorialInstantly()
-        local waitTime = 0
-        while isInTutorial() do
-            task.wait(0.5)
-            waitTime = waitTime + 0.5
-            if waitTime >= 30 then
-                print("[!] Tutorial stuck selama 30 detik! Memaksa rejoin...")
-                local ts = game:GetService("TeleportService")
-                pcall(function() ts:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
-                task.wait(3)
-                pcall(function() ts:Teleport(game.PlaceId, LocalPlayer) end)
-                break
-            end
-        end
-        task.wait(1)
-    end
     
-    -- 2. TELEPORT KE STEVEN
-    teleportToSteven()
-    task.wait(1)
-    
-    -- 3. AUTO CLAIM MAIL
-    startAutoClaimMail()
-    task.wait(0.5)
-    
-    -- 4. FPS BOOST
-    applyFpsBoost()
-    task.wait(0.5)
-    
-    -- 5. AUTO BUY
-    startAutoBuy()
-    task.wait(0.5)
-    
-    -- 6. AUTO DAILY DEAL & SELL
-    startAutoDailyDealAndSell()
-    
-    print("[+] Selesai! Semua fitur telah dijalankan dan sedang bekerja di latar belakang.")
-end)
