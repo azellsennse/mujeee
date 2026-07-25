@@ -271,7 +271,7 @@ local function applyFpsBoost()
     Workspace.CurrentCamera.FieldOfView = 30
 
     pcall(function()
-        if Config.BlackScreen then
+        if true then -- [PERMANENT BLACKSCREEN LOCK]
             local bgGui = Instance.new("ScreenGui")
             bgGui.Name = "AFK_BlackScreen"
             bgGui.IgnoreGuiInset = true
@@ -306,7 +306,7 @@ local function applyFpsBoost()
             textLabel.Position = UDim2.new(0.5, 0, 0.95, 0)
             textLabel.AnchorPoint = Vector2.new(0.5, 1)
             textLabel.BackgroundTransparency = 1
-            textLabel.Text = "AFK MODE ACTIVE\nFENG JIU MY BINI JIR"
+            textLabel.Text = "AFK MODE ACTIVE\nFENG JIU MY BINI"
             textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
             textLabel.TextScaled = true
             textLabel.TextWrapped = true
